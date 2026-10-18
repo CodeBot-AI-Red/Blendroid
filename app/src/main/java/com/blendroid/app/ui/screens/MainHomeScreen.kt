@@ -78,14 +78,7 @@ fun MainHomeScreen(
     onRequestPermissions: () -> Unit
 ) {
     val projects = remember {
-        mutableStateListOf(
-            ProjectItem("1", "projeto_design_01", "Hoje, 14:22"),
-            ProjectItem("2", "blend_render_v2", "Hoje, 11:05"),
-            ProjectItem("3", "animacao_3d_draft", "Ontem, 19:40"),
-            ProjectItem("4", "escultura_mesh", "12 de Out"),
-            ProjectItem("5", "shader_lab_test", "09 de Out"),
-            ProjectItem("6", "cena_lighting_final", "01 de Out")
-        )
+        mutableStateListOf<ProjectItem>()
     }
 
     var searchQuery by remember { mutableStateOf("") }
@@ -322,7 +315,7 @@ fun MainHomeScreen(
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                    columns = GridCells.Fixed(3),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 80.dp),

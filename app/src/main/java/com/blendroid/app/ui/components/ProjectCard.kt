@@ -83,7 +83,7 @@ fun ProjectCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1.33f)
+                    .aspectRatio(16f / 9f)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
@@ -92,7 +92,7 @@ fun ProjectCard(
                             )
                         )
                     )
-                    .padding(12.dp),
+                    .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 // Background visual graphic element

@@ -18,17 +18,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.FolderZip
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Power
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -148,7 +143,7 @@ fun AiAssistantDrawer(
                 }
             }
 
-            Divider(color = DarkSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp))
+            HorizontalDivider(color = DarkSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp))
 
             // Tab Content
             when (selectedTab) {
@@ -187,7 +182,7 @@ fun AiAssistantDrawer(
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
                                 modifier = Modifier.height(50.dp)
                             ) {
-                                Icon(Icons.Default.Send, contentDescription = "Enviar", tint = Color.White)
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar", tint = Color.White)
                             }
                         }
 

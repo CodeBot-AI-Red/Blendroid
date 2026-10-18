@@ -17,8 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.OpenWith
@@ -26,7 +24,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -48,7 +46,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blendroid.app.engine.model.Color4
-import com.blendroid.app.engine.model.EditorMode
 import com.blendroid.app.engine.model.ModifierType
 import com.blendroid.app.engine.model.SceneGraph
 import com.blendroid.app.engine.model.Transform
@@ -118,7 +115,7 @@ fun PropertiesPanel(
                 }
             }
 
-            Divider(color = DarkSurfaceVariant, thickness = 1.dp)
+            HorizontalDivider(color = DarkSurfaceVariant, thickness = 1.dp)
 
             Spacer(modifier = Modifier.height(6.dp))
 

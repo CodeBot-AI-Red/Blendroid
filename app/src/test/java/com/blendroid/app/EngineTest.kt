@@ -8,15 +8,12 @@ import com.blendroid.app.engine.export.BlendroidExporter
 import com.blendroid.app.engine.export.GltfExporter
 import com.blendroid.app.engine.export.ObjExporter
 import com.blendroid.app.engine.export.StlExporter
-import com.blendroid.app.engine.model.Color4
 import com.blendroid.app.engine.model.MeshData
-import com.blendroid.app.engine.model.ModifierType
 import com.blendroid.app.engine.model.SceneGraph
 import com.blendroid.app.engine.model.Transform
 import com.blendroid.app.engine.model.Vector3
-import org.json.JSONObject
+import com.blendroid.app.model.ProjectItem
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -55,7 +52,7 @@ class EngineTest {
     }
 
     @Test
-    fun testExporters() {
+    fun testExportersAndScenePersistence() {
         val scene = SceneGraph.createDefaultScene()
 
         // OBJ Export
@@ -80,6 +77,19 @@ class EngineTest {
         val jsonStr = BlendroidExporter.exportToJson(scene)
         val restoredScene = BlendroidExporter.importFromJson(jsonStr)
         assertEquals(scene.objects.size, restoredScene.objects.size)
+    }
+
+    @Test
+    fun testProjectItemModel() {
+        val project = ProjectItem(
+            id = "test_123",
+            name = "Meu_Projeto_3D",
+            lastModified = "Agora",
+            isFavorite = true
+        )
+        assertEquals("test_123", project.id)
+        assertEquals("Meu_Projeto_3D", project.name)
+        assertTrue(project.isFavorite)
     }
 
     @Test

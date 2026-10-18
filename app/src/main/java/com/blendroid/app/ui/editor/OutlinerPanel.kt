@@ -17,16 +17,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blendroid.app.engine.model.MeshPrimitiveType
 import com.blendroid.app.engine.model.SceneGraph
-import com.blendroid.app.engine.model.SceneObject
 import com.blendroid.app.ui.theme.DarkSurface
 import com.blendroid.app.ui.theme.DarkSurfaceVariant
 import com.blendroid.app.ui.theme.PrimaryIndigo
@@ -81,7 +80,7 @@ fun OutlinerPanel(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.List,
+                        imageVector = Icons.AutoMirrored.Filled.List,
                         contentDescription = "Outliner",
                         tint = PrimaryIndigoLight,
                         modifier = Modifier.size(18.dp)
@@ -112,7 +111,7 @@ fun OutlinerPanel(
                 }
             }
 
-            Divider(color = DarkSurfaceVariant, thickness = 1.dp)
+            HorizontalDivider(color = DarkSurfaceVariant, thickness = 1.dp)
 
             Spacer(modifier = Modifier.height(4.dp))
 

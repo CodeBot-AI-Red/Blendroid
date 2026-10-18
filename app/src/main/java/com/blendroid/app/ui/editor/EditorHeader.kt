@@ -13,14 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -91,7 +88,7 @@ fun EditorHeader(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Voltar",
                         tint = TextPrimary
                     )
@@ -115,7 +112,7 @@ fun EditorHeader(
                         modifier = Modifier.background(DarkSurfaceVariant)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Salvar Projeto (.blendroid)", color = TextPrimary) },
+                            text = { Text("Salvar Projeto Local", color = TextPrimary) },
                             leadingIcon = { Icon(Icons.Default.Save, contentDescription = null, tint = PrimaryIndigoLight) },
                             onClick = {
                                 showFileMenu = false

@@ -244,7 +244,6 @@ data class MeshData(
             verts.add(Vertex(1, Vector3(0f, hh, 0f), Vector3(0f, 1f, 0f)))
 
             val bottomRingStart = 2
-            val topRingStart = 2 + segments
 
             for (i in 0 until segments) {
                 val angle = (2 * PI * i / segments).toFloat()

@@ -42,6 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,9 +54,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blendroid.app.engine.export.ProjectStorageManager
 import com.blendroid.app.model.ProjectItem
 import com.blendroid.app.ui.components.ProjectCard
 import com.blendroid.app.ui.theme.DarkBackground
@@ -77,12 +80,12 @@ fun MainHomeScreen(
     onRequestPermissions: () -> Unit,
     onOpenProject: (ProjectItem) -> Unit
 ) {
-    val projects = remember {
-        mutableStateListOf(
-            ProjectItem("1", "Cena_Principal_3D", "Hoje"),
-            ProjectItem("2", "Robô_Animado", "Ontem"),
-            ProjectItem("3", "Cidade_Procedural_IA", "Há 2 dias")
-        )
+    val context = LocalContext.current
+    val projects = remember { mutableStateListOf<ProjectItem>() }
+
+    LaunchedEffect(Unit) {
+        projects.clear()
+        projects.addAll(ProjectStorageManager.loadProjects(context))
     }
 
     var searchQuery by remember { mutableStateOf("") }
@@ -311,7 +314,7 @@ fun MainHomeScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Nenhum projeto encontrado",
+                            text = "Nenhum projeto encontrado. Toque no '+' para criar.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextMuted
                         )
@@ -341,7 +344,9 @@ fun MainHomeScreen(
                             onToggleFavorite = { proj ->
                                 val index = projects.indexOfFirst { it.id == proj.id }
                                 if (index != -1) {
-                                    projects[index] = proj.copy(isFavorite = !proj.isFavorite)
+                                    val updated = proj.copy(isFavorite = !proj.isFavorite)
+                                    projects[index] = updated
+                                    ProjectStorageManager.updateProject(context, updated)
                                 }
                             }
                         )
@@ -384,15 +389,11 @@ fun MainHomeScreen(
                 Button(
                     onClick = {
                         if (newProjectName.isNotBlank()) {
-                            val newProj = ProjectItem(
-                                id = System.currentTimeMillis().toString(),
-                                name = newProjectName.trim(),
-                                lastModified = "Agora"
-                            )
-                            projects.add(0, newProj)
+                            val createdProj = ProjectStorageManager.createProject(context, newProjectName.trim())
+                            projects.add(0, createdProj)
                             newProjectName = ""
                             showCreateDialog = false
-                            onOpenProject(newProj)
+                            onOpenProject(createdProj)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryIndigo)
@@ -437,7 +438,9 @@ fun MainHomeScreen(
                         if (renameInputText.isNotBlank()) {
                             val index = projects.indexOfFirst { it.id == proj.id }
                             if (index != -1) {
-                                projects[index] = proj.copy(name = renameInputText.trim())
+                                val updated = proj.copy(name = renameInputText.trim())
+                                projects[index] = updated
+                                ProjectStorageManager.updateProject(context, updated)
                             }
                             projectToRename = null
                         }
@@ -471,6 +474,7 @@ fun MainHomeScreen(
                 Button(
                     onClick = {
                         projects.removeIf { it.id == proj.id }
+                        ProjectStorageManager.deleteProject(context, proj.id)
                         scope.launch {
                             snackbarHostState.showSnackbar("Projeto removido.")
                         }

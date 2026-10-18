@@ -1,12 +1,8 @@
 package com.blendroid.app.ui.editor
 
-import android.content.Context
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -28,20 +24,19 @@ import com.blendroid.app.engine.ai.ScriptRunner
 import com.blendroid.app.engine.export.BlendroidExporter
 import com.blendroid.app.engine.export.GltfExporter
 import com.blendroid.app.engine.export.ObjExporter
+import com.blendroid.app.engine.export.ProjectStorageManager
 import com.blendroid.app.engine.export.StlExporter
 import com.blendroid.app.engine.export.StorageExportHelper
-import com.blendroid.app.engine.model.Color4
 import com.blendroid.app.engine.model.EditorMode
-import com.blendroid.app.engine.model.ModifierType
 import com.blendroid.app.engine.model.SceneGraph
 import com.blendroid.app.engine.model.ShadingMode
-import com.blendroid.app.engine.model.Transform
 import com.blendroid.app.ui.theme.DarkBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun EditorScreen(
+    projectId: String,
     projectName: String,
     onBackToHome: () -> Unit
 ) {
@@ -49,8 +44,20 @@ fun EditorScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Instantiate Scene Engine & AI System
-    val scene = remember { SceneGraph.createDefaultScene() }
+    // Load or create Scene Graph
+    val scene = remember {
+        val savedJson = ProjectStorageManager.loadProjectScene(context, projectId)
+        if (!savedJson.isNullOrEmpty()) {
+            try {
+                BlendroidExporter.importFromJson(savedJson)
+            } catch (e: Exception) {
+                SceneGraph.createDefaultScene()
+            }
+        } else {
+            SceneGraph.createDefaultScene()
+        }
+    }
+
     val commandExecutor = remember { AiCommandExecutor() }
     val mcpBridge = remember { McpBridge(commandExecutor) }
     val npmPluginManager = remember { NpmPluginManager(commandExecutor, mcpBridge) }
@@ -64,6 +71,11 @@ fun EditorScreen(
 
     fun refreshUi() {
         triggerRecompose++
+    }
+
+    fun saveProjectLocally() {
+        val json = BlendroidExporter.exportToJson(scene)
+        ProjectStorageManager.saveProjectScene(context, projectId, json)
     }
 
     // Animation Loop
@@ -109,6 +121,7 @@ fun EditorScreen(
                         "Luz Ponto" -> scene.addLight()
                         "Câmera" -> scene.addCamera()
                     }
+                    saveProjectLocally()
                     scope.launch { snackbarHostState.showSnackbar("Adicionado '$primName' à cena.") }
                     refreshUi()
                 },
@@ -126,14 +139,16 @@ fun EditorScreen(
                     }
                 },
                 onSaveProject = {
+                    saveProjectLocally()
                     scope.launch {
-                        val json = BlendroidExporter.exportToJson(scene)
-                        StorageExportHelper.saveToFile(context, "${projectName.lowercase().replace(" ", "_")}.blendroid", json)
-                        snackbarHostState.showSnackbar("Projeto salvo com sucesso!")
+                        snackbarHostState.showSnackbar("Projeto salvo localmente com sucesso!")
                     }
                 },
                 onToggleAiDrawer = { showAiDrawer = !showAiDrawer },
-                onBackToHome = onBackToHome
+                onBackToHome = {
+                    saveProjectLocally()
+                    onBackToHome()
+                }
             )
         },
         bottomBar = {
@@ -149,6 +164,7 @@ fun EditorScreen(
                 },
                 onInsertKeyframe = {
                     commandExecutor.addKeyframe(scene, scene.currentFrame)
+                    saveProjectLocally()
                     scope.launch { snackbarHostState.showSnackbar("Keyframe inserido no frame ${scene.currentFrame}!") }
                     refreshUi()
                 }
@@ -180,11 +196,13 @@ fun EditorScreen(
                     },
                     onDuplicateObject = {
                         scene.duplicateActiveObject()
+                        saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Objeto duplicado.") }
                         refreshUi()
                     },
                     onDeleteObject = { id ->
                         scene.deleteObject(id)
+                        saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Objeto removido.") }
                         refreshUi()
                     }
@@ -206,28 +224,33 @@ fun EditorScreen(
                     scene = scene,
                     onExtrudeFaces = { dist ->
                         commandExecutor.extrudeSelectedFaces(scene, dist)
+                        saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Faces extrudadas.") }
                         refreshUi()
                     },
                     onSubdivideMesh = {
                         commandExecutor.subdivideActiveMesh(scene)
+                        saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Malha subdividida.") }
                         refreshUi()
                     },
                     onAddModifier = { modType ->
                         commandExecutor.addModifier(scene, modType)
+                        saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Modificador adicionado.") }
                         refreshUi()
                     },
                     onUpdateTransform = { newT ->
                         scene.getActiveObject()?.let {
                             it.transform = newT
+                            saveProjectLocally()
                             refreshUi()
                         }
                     },
                     onUpdateMaterial = { color, met, rough ->
                         scene.getActiveObject()?.let {
                             it.material = it.material.copy(baseColor = color, metallic = met, roughness = rough)
+                            saveProjectLocally()
                             refreshUi()
                         }
                     }

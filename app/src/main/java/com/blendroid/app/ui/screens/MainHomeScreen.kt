@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.AlertDialog
@@ -75,10 +74,15 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainHomeScreen(
     hasPermissions: Boolean,
-    onRequestPermissions: () -> Unit
+    onRequestPermissions: () -> Unit,
+    onOpenProject: (ProjectItem) -> Unit
 ) {
     val projects = remember {
-        mutableStateListOf<ProjectItem>()
+        mutableStateListOf(
+            ProjectItem("1", "Cena_Principal_3D", "Hoje"),
+            ProjectItem("2", "Robô_Animado", "Ontem"),
+            ProjectItem("3", "Cidade_Procedural_IA", "Há 2 dias")
+        )
     }
 
     var searchQuery by remember { mutableStateOf("") }
@@ -129,7 +133,7 @@ fun MainHomeScreen(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Blendroid",
+                            text = "Blendroid 3D",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 22.sp,
@@ -325,9 +329,7 @@ fun MainHomeScreen(
                         ProjectCard(
                             project = item,
                             onProjectClick = { proj ->
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Abrindo projeto: {${proj.name}}")
-                                }
+                                onOpenProject(proj)
                             },
                             onRenameClick = { proj ->
                                 projectToRename = proj
@@ -353,11 +355,11 @@ fun MainHomeScreen(
     if (showCreateDialog) {
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
-            title = { Text("Novo Projeto", color = TextPrimary) },
+            title = { Text("Novo Projeto 3D", color = TextPrimary) },
             text = {
                 Column {
                     Text(
-                        "Digite o nome do novo projeto:",
+                        "Digite o nome do novo projeto 3D:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
@@ -382,24 +384,20 @@ fun MainHomeScreen(
                 Button(
                     onClick = {
                         if (newProjectName.isNotBlank()) {
-                            projects.add(
-                                0,
-                                ProjectItem(
-                                    id = System.currentTimeMillis().toString(),
-                                    name = newProjectName.trim(),
-                                    lastModified = "Agora"
-                                )
+                            val newProj = ProjectItem(
+                                id = System.currentTimeMillis().toString(),
+                                name = newProjectName.trim(),
+                                lastModified = "Agora"
                             )
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Projeto '{${newProjectName.trim()}}' criado!")
-                            }
+                            projects.add(0, newProj)
                             newProjectName = ""
                             showCreateDialog = false
+                            onOpenProject(newProj)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryIndigo)
                 ) {
-                    Text("Criar")
+                    Text("Criar e Abrir Editor")
                 }
             },
             dismissButton = {
@@ -465,7 +463,7 @@ fun MainHomeScreen(
             title = { Text("Excluir Projeto", color = TextPrimary) },
             text = {
                 Text(
-                    "Tem certeza de que deseja excluir o projeto '{${proj.name}}'?",
+                    "Tem certeza de que deseja excluir o projeto '${proj.name}'?",
                     color = TextSecondary
                 )
             },

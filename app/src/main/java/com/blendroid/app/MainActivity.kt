@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.blendroid.app.permissions.PermissionUtils
+import com.blendroid.app.ui.editor.EditorScreen
 import com.blendroid.app.ui.screens.MainHomeScreen
 import com.blendroid.app.ui.screens.SplashScreen
 import com.blendroid.app.ui.theme.BlendroidTheme
@@ -21,6 +22,7 @@ class MainActivity : ComponentActivity() {
 
     private var isSplashScreenVisible by mutableStateOf(true)
     private var hasPermissions by mutableStateOf(false)
+    private var selectedProjectName by mutableStateOf<String?>(null)
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -46,10 +48,21 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     } else {
-                        MainHomeScreen(
-                            hasPermissions = hasPermissions,
-                            onRequestPermissions = { requestAllPermissions() }
-                        )
+                        val activeProject = selectedProjectName
+                        if (activeProject != null) {
+                            EditorScreen(
+                                projectName = activeProject,
+                                onBackToHome = { selectedProjectName = null }
+                            )
+                        } else {
+                            MainHomeScreen(
+                                hasPermissions = hasPermissions,
+                                onRequestPermissions = { requestAllPermissions() },
+                                onOpenProject = { project ->
+                                    selectedProjectName = project.name
+                                }
+                            )
+                        }
                     }
                 }
             }

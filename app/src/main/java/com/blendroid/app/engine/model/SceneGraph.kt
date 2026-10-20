@@ -13,7 +13,19 @@ data class MaterialData(
 )
 
 enum class EditorMode {
-    OBJECT_MODE, EDIT_MODE, SCULPT_MODE, POSE_MODE
+    OBJECT_MODE, EDIT_MODE, SCULPT_MODE, POSE_MODE, VERTEX_PAINT, WEIGHT_PAINT, TEXTURE_PAINT
+}
+
+fun EditorMode.getLabel(): String {
+    return when (this) {
+        EditorMode.OBJECT_MODE -> "Object Mode"
+        EditorMode.EDIT_MODE -> "Edit Mode"
+        EditorMode.SCULPT_MODE -> "Sculpt Mode"
+        EditorMode.POSE_MODE -> "Pose Mode"
+        EditorMode.VERTEX_PAINT -> "Vertex Paint"
+        EditorMode.WEIGHT_PAINT -> "Weight Paint"
+        EditorMode.TEXTURE_PAINT -> "Texture Paint"
+    }
 }
 
 enum class ShadingMode {
@@ -50,7 +62,9 @@ data class SceneObject(
     var cameraData: CameraData? = null,
     var parentId: String? = null,
     var isVisible: Boolean = true,
-    var isSelected: Boolean = false
+    var isSelected: Boolean = false,
+    var isSelectable: Boolean = true,
+    var isRenderable: Boolean = true
 )
 
 data class SceneGraph(
@@ -58,12 +72,33 @@ data class SceneGraph(
     var activeObjectId: String? = null,
     var currentFrame: Int = 1,
     var totalFrames: Int = 250,
+    var startFrame: Int = 1,
+    var endFrame: Int = 250,
     var isPlaying: Boolean = false,
+    var isAutoKeying: Boolean = false,
     var animationTrack: AnimationTrack = AnimationTrack(),
     var editorMode: EditorMode = EditorMode.OBJECT_MODE,
     var shadingMode: ShadingMode = ShadingMode.SOLID,
-    var editSelectMode: EditSelectMode = EditSelectMode.FACE
+    var editSelectMode: EditSelectMode = EditSelectMode.FACE,
+
+    // Mobile & Blender 3D Viewport Options
+    var cursorPosition: Vector3 = Vector3(0f, 0f, 0f),
+    var transformOrientation: String = "GLOBAL", // GLOBAL, LOCAL, NORMAL, GIMBAL, VIEW, CURSOR
+    var pivotPoint: String = "MEDIAN_POINT", // BOUNDING_BOX, 3D_CURSOR, INDIVIDUAL_ORIGINS, MEDIAN_POINT, ACTIVE_ELEMENT
+    var snapEnabled: Boolean = false,
+    var snapType: String = "INCREMENT", // INCREMENT, VERTEX, EDGE, FACE, VOLUME
+    var proportionalEditing: Boolean = false,
+    var proportionalFalloff: String = "SMOOTH", // SMOOTH, SPHERE, ROOT, SHARP, LINEAR, CONSTANT, RANDOM
+    var showOverlays: Boolean = true,
+    var showXRay: Boolean = false,
+    var activeWorkspace: String = "Layout", // Layout, Modeling, Sculpting, Animation, Rendering, Geometry Nodes
+    var activeTool: String = "SELECT", // SELECT, MOVE, ROTATE, SCALE, ANNOTATE, MEASURE, ADD, EXTRUDE, INSET, BEVEL, LOOP_CUT, SCULPT_BRUSH
+    var selectMode: String = "BOX", // BOX, CIRCLE, LASSO
+    var sculptBrush: String = "DRAW" // DRAW, CLAY, SMOOTH, GRAB, INFLATE, PINCH
 ) {
+    val undoStack: MutableList<SceneGraphSnapshot> = mutableListOf()
+    val redoStack: MutableList<SceneGraphSnapshot> = mutableListOf()
+
     fun getActiveObject(): SceneObject? = objects.find { it.id == activeObjectId }
 
     fun addCube(name: String = "Cube"): SceneObject {
@@ -187,6 +222,55 @@ data class SceneGraph(
         return dup
     }
 
+    fun pushUndoSnapshot() {
+        if (undoStack.size >= 30) {
+            undoStack.removeAt(0)
+        }
+        undoStack.add(createSnapshot())
+        redoStack.clear()
+    }
+
+    fun createSnapshot(): SceneGraphSnapshot {
+        return SceneGraphSnapshot(
+            objects = objects.map { it.copy(mesh = it.mesh.clone(), modifiers = it.modifiers.toMutableList()) }.toMutableList(),
+            activeObjectId = activeObjectId,
+            currentFrame = currentFrame,
+            editorMode = editorMode,
+            shadingMode = shadingMode,
+            cursorPosition = cursorPosition
+        )
+    }
+
+    fun restoreSnapshot(snapshot: SceneGraphSnapshot) {
+        objects.clear()
+        objects.addAll(snapshot.objects.map { it.copy(mesh = it.mesh.clone(), modifiers = it.modifiers.toMutableList()) })
+        activeObjectId = snapshot.activeObjectId
+        currentFrame = snapshot.currentFrame
+        editorMode = snapshot.editorMode
+        shadingMode = snapshot.shadingMode
+        cursorPosition = snapshot.cursorPosition
+    }
+
+    fun undo(): Boolean {
+        if (undoStack.isEmpty()) return false
+        val currentSnap = createSnapshot()
+        redoStack.add(currentSnap)
+
+        val lastSnap = undoStack.removeAt(undoStack.size - 1)
+        restoreSnapshot(lastSnap)
+        return true
+    }
+
+    fun redo(): Boolean {
+        if (redoStack.isEmpty()) return false
+        val currentSnap = createSnapshot()
+        undoStack.add(currentSnap)
+
+        val nextSnap = redoStack.removeAt(redoStack.size - 1)
+        restoreSnapshot(nextSnap)
+        return true
+    }
+
     companion object {
         fun createDefaultScene(): SceneGraph {
             val scene = SceneGraph()
@@ -199,3 +283,12 @@ data class SceneGraph(
         }
     }
 }
+
+data class SceneGraphSnapshot(
+    val objects: List<SceneObject>,
+    val activeObjectId: String?,
+    val currentFrame: Int,
+    val editorMode: EditorMode,
+    val shadingMode: ShadingMode,
+    val cursorPosition: Vector3
+)

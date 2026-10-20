@@ -1,7 +1,14 @@
 package com.blendroid.app.ui.editor
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -27,9 +34,7 @@ import com.blendroid.app.engine.export.ObjExporter
 import com.blendroid.app.engine.export.ProjectStorageManager
 import com.blendroid.app.engine.export.StlExporter
 import com.blendroid.app.engine.export.StorageExportHelper
-import com.blendroid.app.engine.model.EditorMode
 import com.blendroid.app.engine.model.SceneGraph
-import com.blendroid.app.engine.model.ShadingMode
 import com.blendroid.app.ui.theme.DarkBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -63,8 +68,9 @@ fun EditorScreen(
     val npmPluginManager = remember { NpmPluginManager(commandExecutor, mcpBridge) }
     val scriptRunner = remember { ScriptRunner(commandExecutor, mcpBridge) }
 
-    var editorMode by remember { mutableStateOf(EditorMode.OBJECT_MODE) }
-    var shadingMode by remember { mutableStateOf(ShadingMode.SOLID) }
+    var showLeftDrawer by remember { mutableStateOf(false) }
+    var showRightDrawer by remember { mutableStateOf(false) }
+    var showTimeline by remember { mutableStateOf(false) }
     var showAiDrawer by remember { mutableStateOf(false) }
 
     var triggerRecompose by remember { mutableStateOf(0) }
@@ -78,11 +84,29 @@ fun EditorScreen(
         ProjectStorageManager.saveProjectScene(context, projectId, json)
     }
 
-    // Animation Loop
+    fun handleAddPrimitive(primName: String) {
+        scene.pushUndoSnapshot()
+        when (primName) {
+            "Cubo" -> scene.addCube()
+            "Esfera" -> scene.addSphere()
+            "Cilindro" -> scene.addCylinder()
+            "Plano" -> scene.addPlane()
+            "Torus" -> scene.addTorus()
+            "Suzanne (Macaco)" -> scene.addMonkey()
+            "Esqueleto (Armature)" -> scene.addArmature()
+            "Luz Ponto" -> scene.addLight()
+            "Câmera" -> scene.addCamera()
+        }
+        saveProjectLocally()
+        scope.launch { snackbarHostState.showSnackbar("Adicionado '$primName' à cena.") }
+        refreshUi()
+    }
+
+    // Animation Playback Loop
     LaunchedEffect(scene.isPlaying) {
         while (scene.isPlaying) {
             delay(1000L / 24L) // 24 FPS
-            scene.currentFrame = if (scene.currentFrame >= scene.totalFrames) 1 else scene.currentFrame + 1
+            scene.currentFrame = if (scene.currentFrame >= scene.endFrame) scene.startFrame else scene.currentFrame + 1
 
             // Evaluate animation track transform
             val activeObj = scene.getActiveObject()
@@ -96,34 +120,11 @@ fun EditorScreen(
     Scaffold(
         topBar = {
             EditorHeader(
+                scene = scene,
                 projectName = projectName,
-                editorMode = editorMode,
-                shadingMode = shadingMode,
-                onModeChange = {
-                    editorMode = it
-                    scene.editorMode = it
-                    refreshUi()
-                },
-                onShadingChange = {
-                    shadingMode = it
-                    scene.shadingMode = it
-                    refreshUi()
-                },
-                onAddPrimitive = { primName ->
-                    when (primName) {
-                        "Cubo" -> scene.addCube()
-                        "Esfera" -> scene.addSphere()
-                        "Cilindro" -> scene.addCylinder()
-                        "Plano" -> scene.addPlane()
-                        "Torus" -> scene.addTorus()
-                        "Suzanne (Macaco)" -> scene.addMonkey()
-                        "Esqueleto (Armature)" -> scene.addArmature()
-                        "Luz Ponto" -> scene.addLight()
-                        "Câmera" -> scene.addCamera()
-                    }
+                onSaveProject = {
                     saveProjectLocally()
-                    scope.launch { snackbarHostState.showSnackbar("Adicionado '$primName' à cena.") }
-                    refreshUi()
+                    scope.launch { snackbarHostState.showSnackbar("Projeto salvo localmente com sucesso!") }
                 },
                 onExport = { format ->
                     scope.launch {
@@ -138,37 +139,67 @@ fun EditorScreen(
                         snackbarHostState.showSnackbar("Modelo exportado em .$format!")
                     }
                 },
-                onSaveProject = {
-                    saveProjectLocally()
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Projeto salvo localmente com sucesso!")
-                    }
-                },
+                onToggleLeftDrawer = { showLeftDrawer = !showLeftDrawer },
+                onToggleRightDrawer = { showRightDrawer = !showRightDrawer },
                 onToggleAiDrawer = { showAiDrawer = !showAiDrawer },
                 onBackToHome = {
                     saveProjectLocally()
                     onBackToHome()
-                }
+                },
+                onRefreshUi = { refreshUi() }
             )
         },
         bottomBar = {
-            TimelinePanel(
-                scene = scene,
-                onTogglePlay = {
-                    scene.isPlaying = !scene.isPlaying
-                    refreshUi()
-                },
-                onFrameChange = { frame ->
-                    scene.currentFrame = frame
-                    refreshUi()
-                },
-                onInsertKeyframe = {
-                    commandExecutor.addKeyframe(scene, scene.currentFrame)
-                    saveProjectLocally()
-                    scope.launch { snackbarHostState.showSnackbar("Keyframe inserido no frame ${scene.currentFrame}!") }
-                    refreshUi()
+            Column {
+                // Collapsible Mobile Timeline Panel
+                AnimatedVisibility(
+                    visible = showTimeline,
+                    enter = slideInVertically(initialOffsetY = { it }),
+                    exit = slideOutVertically(targetOffsetY = { it })
+                ) {
+                    TimelinePanel(
+                        scene = scene,
+                        onTogglePlay = {
+                            scene.isPlaying = !scene.isPlaying
+                            refreshUi()
+                        },
+                        onFrameChange = { frame ->
+                            scene.currentFrame = frame
+                            refreshUi()
+                        },
+                        onInsertKeyframe = {
+                            scene.pushUndoSnapshot()
+                            commandExecutor.addKeyframe(scene, scene.currentFrame)
+                            saveProjectLocally()
+                            scope.launch { snackbarHostState.showSnackbar("Keyframe inserido no frame ${scene.currentFrame}!") }
+                            refreshUi()
+                        },
+                        onRefreshUi = { refreshUi() }
+                    )
                 }
-            )
+
+                // Fixed Mobile Bottom Toolbar
+                BottomToolbar(
+                    scene = scene,
+                    onAddPrimitive = { prim -> handleAddPrimitive(prim) },
+                    onExtrude = {
+                        scene.pushUndoSnapshot()
+                        commandExecutor.extrudeSelectedFaces(scene, 0.5f)
+                        saveProjectLocally()
+                        scope.launch { snackbarHostState.showSnackbar("Faces extrudadas.") }
+                        refreshUi()
+                    },
+                    onSubdivide = {
+                        scene.pushUndoSnapshot()
+                        commandExecutor.subdivideActiveMesh(scene)
+                        saveProjectLocally()
+                        scope.launch { snackbarHostState.showSnackbar("Malha subdividida.") }
+                        refreshUi()
+                    },
+                    onToggleTimeline = { showTimeline = !showTimeline },
+                    onRefreshUi = { refreshUi() }
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = DarkBackground
@@ -178,9 +209,20 @@ fun EditorScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Main Center Workspace Area: Left Outliner, Middle Viewport 3D, Right Properties Panel
-            Row(modifier = Modifier.fillMaxSize()) {
-                // Outliner Hierarchy Panel
+            // Fullscreen 3D Viewport Canvas
+            Viewport3D(
+                scene = scene,
+                onRefreshUi = { refreshUi() },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Left Drawer (Outliner Hierarchy)
+            AnimatedVisibility(
+                visible = showLeftDrawer,
+                enter = slideInHorizontally(),
+                exit = slideOutHorizontally(),
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
                 OutlinerPanel(
                     scene = scene,
                     onSelectObject = { id ->
@@ -195,46 +237,49 @@ fun EditorScreen(
                         }
                     },
                     onDuplicateObject = {
+                        scene.pushUndoSnapshot()
                         scene.duplicateActiveObject()
                         saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Objeto duplicado.") }
                         refreshUi()
                     },
                     onDeleteObject = { id ->
+                        scene.pushUndoSnapshot()
                         scene.deleteObject(id)
                         saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Objeto removido.") }
                         refreshUi()
-                    }
-                )
-
-                // Viewport 3D Canvas
-                Viewport3D(
-                    scene = scene,
-                    selectedGizmoMode = "MOVE",
-                    onSelectObject = { id ->
-                        scene.activeObjectId = id
-                        refreshUi()
                     },
-                    modifier = Modifier.weight(1f)
+                    onCloseDrawer = { showLeftDrawer = false },
+                    onRefreshUi = { refreshUi() }
                 )
+            }
 
-                // Properties Inspector Panel
+            // Right Drawer (Properties Inspector)
+            AnimatedVisibility(
+                visible = showRightDrawer,
+                enter = slideInHorizontally(initialOffsetX = { it }),
+                exit = slideOutHorizontally(targetOffsetX = { it }),
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
                 PropertiesPanel(
                     scene = scene,
                     onExtrudeFaces = { dist ->
+                        scene.pushUndoSnapshot()
                         commandExecutor.extrudeSelectedFaces(scene, dist)
                         saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Faces extrudadas.") }
                         refreshUi()
                     },
                     onSubdivideMesh = {
+                        scene.pushUndoSnapshot()
                         commandExecutor.subdivideActiveMesh(scene)
                         saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Malha subdividida.") }
                         refreshUi()
                     },
                     onAddModifier = { modType ->
+                        scene.pushUndoSnapshot()
                         commandExecutor.addModifier(scene, modType)
                         saveProjectLocally()
                         scope.launch { snackbarHostState.showSnackbar("Modificador adicionado.") }
@@ -253,19 +298,25 @@ fun EditorScreen(
                             saveProjectLocally()
                             refreshUi()
                         }
-                    }
+                    },
+                    onCloseDrawer = { showRightDrawer = false },
+                    onRefreshUi = { refreshUi() }
                 )
             }
 
-            // AI / MCP Control Drawer
-            if (showAiDrawer) {
+            // Bottom Drawer (AI / MCP Extension Control)
+            AnimatedVisibility(
+                visible = showAiDrawer,
+                enter = slideInVertically(initialOffsetY = { it }),
+                exit = slideOutVertically(targetOffsetY = { it }),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
                 AiAssistantDrawer(
                     scene = scene,
                     mcpBridge = mcpBridge,
                     npmPluginManager = npmPluginManager,
                     scriptRunner = scriptRunner,
-                    onCloseDrawer = { showAiDrawer = false },
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    onCloseDrawer = { showAiDrawer = false }
                 )
             }
         }

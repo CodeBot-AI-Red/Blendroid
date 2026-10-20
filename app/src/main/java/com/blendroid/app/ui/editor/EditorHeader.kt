@@ -14,14 +14,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.ViewSidebar
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,33 +45,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blendroid.app.engine.model.EditorMode
-import com.blendroid.app.engine.model.ShadingMode
-import com.blendroid.app.ui.theme.DarkBackground
+import com.blendroid.app.engine.model.SceneGraph
 import com.blendroid.app.ui.theme.DarkSurface
 import com.blendroid.app.ui.theme.DarkSurfaceVariant
-import com.blendroid.app.ui.theme.PrimaryIndigo
 import com.blendroid.app.ui.theme.PrimaryIndigoLight
+import com.blendroid.app.ui.theme.TextMuted
 import com.blendroid.app.ui.theme.TextPrimary
 import com.blendroid.app.ui.theme.TextSecondary
 
 @Composable
 fun EditorHeader(
+    scene: SceneGraph,
     projectName: String,
-    editorMode: EditorMode,
-    shadingMode: ShadingMode,
-    onModeChange: (EditorMode) -> Unit,
-    onShadingChange: (ShadingMode) -> Unit,
-    onAddPrimitive: (String) -> Unit,
-    onExport: (String) -> Unit,
     onSaveProject: () -> Unit,
+    onExport: (String) -> Unit,
+    onToggleLeftDrawer: () -> Unit,
+    onToggleRightDrawer: () -> Unit,
     onToggleAiDrawer: () -> Unit,
     onBackToHome: () -> Unit,
+    onRefreshUi: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showFileMenu by remember { mutableStateOf(false) }
-    var showAddMenu by remember { mutableStateOf(false) }
-    var showModeMenu by remember { mutableStateOf(false) }
-    var showShadingMenu by remember { mutableStateOf(false) }
+    var showMainMenu by remember { mutableStateOf(false) }
+    var showWorkspaceMenu by remember { mutableStateOf(false) }
+    var showSceneLayerMenu by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier
@@ -77,225 +79,246 @@ fun EditorHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left Group: Back, Title, File Menu, Add Menu
+            // Left Group: Hamburger Menu & Back
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = onBackToHome,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Voltar",
-                        tint = TextPrimary
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                Text(
-                    text = projectName,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = PrimaryIndigoLight,
-                    modifier = Modifier.padding(end = 12.dp)
-                )
-
-                // Menu Arquivo
+                // Hamburger Menu Button
                 Box {
-                    HeaderMenuButton(text = "Arquivo") { showFileMenu = true }
+                    IconButton(
+                        onClick = { showMainMenu = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menu Principal",
+                            tint = PrimaryIndigoLight
+                        )
+                    }
+
                     DropdownMenu(
-                        expanded = showFileMenu,
-                        onDismissRequest = { showFileMenu = false },
+                        expanded = showMainMenu,
+                        onDismissRequest = { showMainMenu = false },
                         modifier = Modifier.background(DarkSurfaceVariant)
                     ) {
+                        Text(
+                            text = "Blendroid Blender Mobile ($projectName)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryIndigoLight,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+
+                        HorizontalDivider(color = DarkSurface)
+
+                        // File Submenu
                         DropdownMenuItem(
                             text = { Text("Salvar Projeto Local", color = TextPrimary) },
                             leadingIcon = { Icon(Icons.Default.Save, contentDescription = null, tint = PrimaryIndigoLight) },
-                            onClick = {
-                                showFileMenu = false
-                                onSaveProject()
-                            }
+                            onClick = { showMainMenu = false; onSaveProject() }
                         )
                         DropdownMenuItem(
                             text = { Text("Exportar .OBJ + .MTL", color = TextPrimary) },
                             leadingIcon = { Icon(Icons.Default.Download, contentDescription = null, tint = TextSecondary) },
-                            onClick = {
-                                showFileMenu = false
-                                onExport("OBJ")
-                            }
+                            onClick = { showMainMenu = false; onExport("OBJ") }
                         )
                         DropdownMenuItem(
-                            text = { Text("Exportar .STL (Impressão 3D)", color = TextPrimary) },
+                            text = { Text("Exportar .STL (3D)", color = TextPrimary) },
                             leadingIcon = { Icon(Icons.Default.Download, contentDescription = null, tint = TextSecondary) },
-                            onClick = {
-                                showFileMenu = false
-                                onExport("STL")
-                            }
+                            onClick = { showMainMenu = false; onExport("STL") }
                         )
                         DropdownMenuItem(
                             text = { Text("Exportar .GLTF 2.0", color = TextPrimary) },
                             leadingIcon = { Icon(Icons.Default.Download, contentDescription = null, tint = TextSecondary) },
+                            onClick = { showMainMenu = false; onExport("GLTF") }
+                        )
+
+                        HorizontalDivider(color = DarkSurface)
+
+                        // Render Submenu
+                        DropdownMenuItem(
+                            text = { Text("Renderizar Imagem", color = TextPrimary) },
+                            leadingIcon = { Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary) },
+                            onClick = { showMainMenu = false; onExport("PNG") }
+                        )
+
+                        // Help / Exit
+                        DropdownMenuItem(
+                            text = { Text("Voltar para Projetos", color = TextPrimary) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextMuted) },
+                            onClick = { showMainMenu = false; onBackToHome() }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(2.dp))
+
+                // Left Outliner Drawer Toggle
+                IconButton(
+                    onClick = onToggleLeftDrawer,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ViewSidebar,
+                        contentDescription = "Outliner Drawer",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            // Center Group: Workspace Switcher Dropdown
+            Box {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DarkSurfaceVariant)
+                        .clickable { showWorkspaceMenu = true }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = scene.activeWorkspace,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            ),
+                            color = PrimaryIndigoLight
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("▼", fontSize = 9.sp, color = TextMuted)
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showWorkspaceMenu,
+                    onDismissRequest = { showWorkspaceMenu = false },
+                    modifier = Modifier.background(DarkSurfaceVariant)
+                ) {
+                    listOf("Layout", "Modeling", "Sculpting", "Animation", "Rendering", "Geometry Nodes").forEach { ws ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = ws,
+                                    color = if (ws == scene.activeWorkspace) PrimaryIndigoLight else TextPrimary,
+                                    fontWeight = if (ws == scene.activeWorkspace) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
                             onClick = {
-                                showFileMenu = false
-                                onExport("GLTF")
+                                scene.activeWorkspace = ws
+                                showWorkspaceMenu = false
+                                // Adapt mode based on workspace
+                                when (ws) {
+                                    "Sculpting" -> scene.editorMode = EditorMode.SCULPT_MODE
+                                    "Modeling" -> scene.editorMode = EditorMode.EDIT_MODE
+                                    else -> scene.editorMode = EditorMode.OBJECT_MODE
+                                }
+                                onRefreshUi()
                             }
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                // Menu Adicionar
-                Box {
-                    HeaderMenuButton(text = "Adicionar +") { showAddMenu = true }
-                    DropdownMenu(
-                        expanded = showAddMenu,
-                        onDismissRequest = { showAddMenu = false },
-                        modifier = Modifier.background(DarkSurfaceVariant)
-                    ) {
-                        listOf("Cubo", "Esfera", "Cilindro", "Plano", "Torus", "Suzanne (Macaco)", "Esqueleto (Armature)", "Luz Ponto", "Câmera").forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item, color = TextPrimary) },
-                                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = PrimaryIndigoLight) },
-                                onClick = {
-                                    showAddMenu = false
-                                    onAddPrimitive(item)
-                                }
-                            )
-                        }
-                    }
-                }
             }
 
-            // Middle Group: Mode Selector & Shading Selector
+            // Right Group: Undo, Redo, Scene/View Layer, Properties Drawer Toggle & AI Toggle
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Editor Mode Selector
-                Box {
-                    val modeLabel = when (editorMode) {
-                        EditorMode.OBJECT_MODE -> "Modo Objeto"
-                        EditorMode.EDIT_MODE -> "Modo Edição"
-                        EditorMode.SCULPT_MODE -> "Modo Escultura"
-                        EditorMode.POSE_MODE -> "Modo Pose"
-                    }
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(PrimaryIndigo)
-                            .clickable { showModeMenu = true }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = modeLabel,
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
-                            color = Color.White
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = showModeMenu,
-                        onDismissRequest = { showModeMenu = false },
-                        modifier = Modifier.background(DarkSurfaceVariant)
-                    ) {
-                        EditorMode.values().forEach { mode ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = when (mode) {
-                                            EditorMode.OBJECT_MODE -> "Modo Objeto"
-                                            EditorMode.EDIT_MODE -> "Modo Edição"
-                                            EditorMode.SCULPT_MODE -> "Modo Escultura"
-                                            EditorMode.POSE_MODE -> "Modo Pose (Bones)"
-                                        },
-                                        color = if (mode == editorMode) PrimaryIndigoLight else TextPrimary
-                                    )
-                                },
-                                onClick = {
-                                    showModeMenu = false
-                                    onModeChange(mode)
-                                }
-                            )
+                // Undo
+                IconButton(
+                    onClick = {
+                        if (scene.undo()) {
+                            onRefreshUi()
                         }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Shading Mode Selector
-                Box {
-                    val shadeLabel = when (shadingMode) {
-                        ShadingMode.WIREFRAME -> "Wireframe"
-                        ShadingMode.SOLID -> "Sólido"
-                        ShadingMode.MATERIAL -> "Material"
-                        ShadingMode.RENDERED -> "Renderizado"
-                    }
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(DarkBackground)
-                            .clickable { showShadingMenu = true }
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = shadeLabel,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = TextSecondary
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = showShadingMenu,
-                        onDismissRequest = { showShadingMenu = false },
-                        modifier = Modifier.background(DarkSurfaceVariant)
-                    ) {
-                        ShadingMode.values().forEach { mode ->
-                            DropdownMenuItem(
-                                text = { Text(mode.name, color = TextPrimary) },
-                                onClick = {
-                                    showShadingMenu = false
-                                    onShadingChange(mode)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Right Group: AI / MCP Control Toggle
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(
-                    onClick = onToggleAiDrawer,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(32.dp)
+                    },
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "IA MCP",
-                        modifier = Modifier.size(16.dp)
+                        imageVector = Icons.AutoMirrored.Filled.Undo,
+                        contentDescription = "Desfazer (Undo)",
+                        tint = if (scene.undoStack.isNotEmpty()) TextPrimary else TextMuted,
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("IA / MCP", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // Redo
+                IconButton(
+                    onClick = {
+                        if (scene.redo()) {
+                            onRefreshUi()
+                        }
+                    },
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Redo,
+                        contentDescription = "Refazer (Redo)",
+                        tint = if (scene.redoStack.isNotEmpty()) TextPrimary else TextMuted,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // View Layer / Scene Popup
+                Box {
+                    IconButton(
+                        onClick = { showSceneLayerMenu = true },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Layers,
+                            contentDescription = "Camadas da Cena",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showSceneLayerMenu,
+                        onDismissRequest = { showSceneLayerMenu = false },
+                        modifier = Modifier.background(DarkSurfaceVariant)
+                    ) {
+                        Text("Cenas & View Layers", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.padding(8.dp))
+                        DropdownMenuItem(
+                            text = { Text("Scene (Cena Principal)", color = PrimaryIndigoLight) },
+                            onClick = { showSceneLayerMenu = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("ViewLayer (Camada de View)", color = TextPrimary) },
+                            onClick = { showSceneLayerMenu = false }
+                        )
+                    }
+                }
+
+                // Right Properties Drawer Toggle
+                IconButton(
+                    onClick = onToggleRightDrawer,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Properties Drawer",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(2.dp))
+
+                // AI Toggle Button
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF8B5CF6))
+                        .clickable { onToggleAiDrawer() }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("IA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun HeaderMenuButton(text: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-            color = TextSecondary
-        )
     }
 }

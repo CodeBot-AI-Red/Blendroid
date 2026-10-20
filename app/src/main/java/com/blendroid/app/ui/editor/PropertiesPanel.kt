@@ -2,6 +2,7 @@ package com.blendroid.app.ui.editor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,14 +19,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -42,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,14 +80,28 @@ fun PropertiesPanel(
     onAddModifier: (ModifierType) -> Unit,
     onUpdateTransform: (Transform) -> Unit,
     onUpdateMaterial: (Color4, Float, Float) -> Unit,
+    onCloseDrawer: () -> Unit,
+    onRefreshUi: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableStateOf("TRANSFORM") } // TRANSFORM, MATERIAL, MESH, MODIFIERS, ARMATURE
+    // Blender Properties Tabs
+    var selectedTab by remember { mutableStateOf("OBJECT") }
     val activeObj = scene.getActiveObject()
+
+    val tabs = listOf(
+        Triple("TOOL", Icons.Default.Tune, "Active Tool"),
+        Triple("RENDER", Icons.Default.CameraAlt, "Render"),
+        Triple("SCENE", Icons.Default.Public, "Scene"),
+        Triple("OBJECT", Icons.Default.OpenWith, "Object"),
+        Triple("MODIFIERS", Icons.Default.Build, "Modifiers"),
+        Triple("DATA", Icons.Default.ViewInAr, "Data"),
+        Triple("MATERIAL", Icons.Default.ColorLens, "Material"),
+        Triple("CONSTRAINTS", Icons.Default.Link, "Constraints")
+    )
 
     Surface(
         modifier = modifier
-            .width(260.dp)
+            .width(300.dp)
             .fillMaxHeight(),
         color = DarkSurface
     ) {
@@ -83,33 +110,55 @@ fun PropertiesPanel(
                 .fillMaxHeight()
                 .padding(6.dp)
         ) {
-            // Properties Panel Tab Buttons
+            // Header Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceAround
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                listOf(
-                    Pair("TRANSFORM", Icons.Default.OpenWith),
-                    Pair("MATERIAL", Icons.Default.ColorLens),
-                    Pair("MESH", Icons.Default.Build),
-                    Pair("MODIFIERS", Icons.Default.Tune),
-                    Pair("ARMATURE", Icons.Default.Person)
-                ).forEach { (tabKey, icon) ->
+                Text(
+                    text = "Properties",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                    color = TextPrimary
+                )
+
+                IconButton(
+                    onClick = onCloseDrawer,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Fechar Drawer",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Horizontal Scrollable Icon Tab Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                tabs.forEach { (tabKey, icon, label) ->
                     val isSel = selectedTab == tabKey
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(if (isSel) PrimaryIndigo else DarkSurfaceVariant)
                             .clickable { selectedTab = tabKey }
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
                     ) {
                         Icon(
                             imageVector = icon,
-                            contentDescription = tabKey,
+                            contentDescription = label,
                             tint = if (isSel) Color.White else TextSecondary,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -119,191 +168,246 @@ fun PropertiesPanel(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            if (activeObj == null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Nenhum objeto selecionado", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        text = "Objeto: ${activeObj.name}",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    when (selectedTab) {
-                        "TRANSFORM" -> {
-                            val t = activeObj.transform
-
-                            Text("Posição (X, Y, Z)", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
-                            Vector3Control(
-                                v = t.position,
-                                onValueChange = { newPos -> onUpdateTransform(t.copy(position = newPos)) }
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Text("Rotação (°)", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
-                            Vector3Control(
-                                v = t.rotation,
-                                onValueChange = { newRot -> onUpdateTransform(t.copy(rotation = newRot)) }
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Text("Escala", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
-                            Vector3Control(
-                                v = t.scale,
-                                onValueChange = { newScl -> onUpdateTransform(t.copy(scale = newScl)) }
-                            )
-                        }
-
-                        "MATERIAL" -> {
-                            val mat = activeObj.material
-                            var r by remember(mat.baseColor.r) { mutableStateOf(mat.baseColor.r) }
-                            var g by remember(mat.baseColor.g) { mutableStateOf(mat.baseColor.g) }
-                            var b by remember(mat.baseColor.b) { mutableStateOf(mat.baseColor.b) }
-                            var metallic by remember(mat.metallic) { mutableStateOf(mat.metallic) }
-                            var roughness by remember(mat.roughness) { mutableStateOf(mat.roughness) }
-
-                            Text("Material: ${mat.name}", fontSize = 11.sp, color = TextSecondary)
+            // Tab Content Body
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                when (selectedTab) {
+                    "TOOL" -> {
+                        CollapsibleCard(title = "Active Tool Settings") {
+                            Text("Ferramenta Ativa: ${scene.activeTool}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PrimaryIndigoLight)
                             Spacer(modifier = Modifier.height(6.dp))
+                            Text("Modo de Seleção: ${scene.selectMode}", fontSize = 11.sp, color = TextSecondary)
+                            Text("Pincel de Escultura: ${scene.sculptBrush}", fontSize = 11.sp, color = TextSecondary)
+                        }
+                    }
 
-                            // Color Preview Box
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(30.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(mat.baseColor.toArgbInt()))
-                            )
+                    "RENDER" -> {
+                        CollapsibleCard(title = "Engine de Render") {
+                            Text("Engine: EEVEE Mobile (GL ES 2.0)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Amostras de Viewport: 16", fontSize = 10.sp, color = TextSecondary)
+                            Text("Amostras de Render: 64", fontSize = 10.sp, color = TextSecondary)
+                            Text("Ambient Occlusion: Ativado", fontSize = 10.sp, color = TextSecondary)
+                            Text("Bloom: Ativado", fontSize = 10.sp, color = TextSecondary)
+                        }
+                    }
 
+                    "SCENE" -> {
+                        CollapsibleCard(title = "Propriedades da Cena") {
+                            Text("Unidades: Métrico (Metros)", fontSize = 11.sp, color = TextPrimary)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Gravidade: Z = -9.81 m/s²", fontSize = 11.sp, color = TextSecondary)
+                            Text("FPS: 24.0", fontSize = 11.sp, color = TextSecondary)
+                            Text("Frame Inicial: ${scene.startFrame}", fontSize = 11.sp, color = TextSecondary)
+                            Text("Frame Final: ${scene.endFrame}", fontSize = 11.sp, color = TextSecondary)
+                        }
+                    }
+
+                    "OBJECT" -> {
+                        if (activeObj == null) {
+                            Text("Nenhum objeto selecionado", fontSize = 11.sp, color = TextMuted)
+                        } else {
+                            Text("Objeto: ${activeObj.name}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Text("Vermelho (R): ${(r * 255).toInt()}", fontSize = 10.sp, color = TextMuted)
-                            Slider(
-                                value = r,
-                                onValueChange = { r = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
-                                colors = SliderDefaults.colors(thumbColor = Color.Red, activeTrackColor = Color.Red)
-                            )
+                            CollapsibleCard(title = "Transform (Posição, Rotação, Escala)") {
+                                val t = activeObj.transform
 
-                            Text("Verde (G): ${(g * 255).toInt()}", fontSize = 10.sp, color = TextMuted)
-                            Slider(
-                                value = g,
-                                onValueChange = { g = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
-                                colors = SliderDefaults.colors(thumbColor = Color.Green, activeTrackColor = Color.Green)
-                            )
+                                Text("Posição (X, Y, Z)", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
+                                Vector3TouchControl(
+                                    v = t.position,
+                                    onValueChange = { newPos ->
+                                        scene.pushUndoSnapshot()
+                                        onUpdateTransform(t.copy(position = newPos))
+                                    }
+                                )
 
-                            Text("Azul (B): ${(b * 255).toInt()}", fontSize = 10.sp, color = TextMuted)
-                            Slider(
-                                value = b,
-                                onValueChange = { b = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
-                                colors = SliderDefaults.colors(thumbColor = Color.Blue, activeTrackColor = Color.Blue)
-                            )
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                            Text("Metálico: ${(metallic * 100).toInt()}%", fontSize = 10.sp, color = TextMuted)
-                            Slider(
-                                value = metallic,
-                                onValueChange = { metallic = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
-                                colors = SliderDefaults.colors(thumbColor = PrimaryIndigoLight, activeTrackColor = PrimaryIndigo)
-                            )
+                                Text("Rotação (°)", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
+                                Vector3TouchControl(
+                                    v = t.rotation,
+                                    onValueChange = { newRot ->
+                                        scene.pushUndoSnapshot()
+                                        onUpdateTransform(t.copy(rotation = newRot))
+                                    }
+                                )
 
-                            Text("Rugosidade: ${(roughness * 100).toInt()}%", fontSize = 10.sp, color = TextMuted)
-                            Slider(
-                                value = roughness,
-                                onValueChange = { roughness = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
-                                colors = SliderDefaults.colors(thumbColor = PrimaryIndigoLight, activeTrackColor = PrimaryIndigo)
-                            )
-                        }
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                        "MESH" -> {
-                            val mesh = activeObj.mesh
-                            Text("Vértices: ${mesh.vertices.size}", fontSize = 11.sp, color = TextSecondary)
-                            Text("Faces: ${mesh.faces.size}", fontSize = 11.sp, color = TextSecondary)
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text("Operações de Edição de Malha", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Button(
-                                onClick = { onExtrudeFaces(0.5f) },
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryIndigo),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Extrudar Faces (Extrude E)", fontSize = 11.sp)
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Button(
-                                onClick = onSubdivideMesh,
-                                colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Subdividir Malha (Subdivide)", fontSize = 11.sp, color = TextPrimary)
+                                Text("Escala", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
+                                Vector3TouchControl(
+                                    v = t.scale,
+                                    onValueChange = { newScl ->
+                                        scene.pushUndoSnapshot()
+                                        onUpdateTransform(t.copy(scale = newScl))
+                                    }
+                                )
                             }
                         }
+                    }
 
-                        "MODIFIERS" -> {
-                            Text("Modificadores Ativos (${activeObj.modifiers.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    "MODIFIERS" -> {
+                        if (activeObj == null) {
+                            Text("Nenhum objeto selecionado", fontSize = 11.sp, color = TextMuted)
+                        } else {
+                            CollapsibleCard(title = "Modificadores (${activeObj.modifiers.size})") {
+                                activeObj.modifiers.forEach { mod ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 3.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(DarkSurfaceVariant)
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(mod.name, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                        Button(
+                                            onClick = {
+                                                activeObj.modifiers.removeIf { it.id == mod.id }
+                                                scene.pushUndoSnapshot()
+                                                onRefreshUi()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                                            modifier = Modifier.height(28.dp)
+                                        ) {
+                                            Text("Remover", fontSize = 9.sp)
+                                        }
+                                    }
+                                }
 
-                            activeObj.modifiers.forEach { mod ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Adicionar Modificador:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextSecondary)
+
+                                listOf(
+                                    Pair("Subdivision Surface", ModifierType.SUBDIVISION_SURFACE),
+                                    Pair("Mirror (Espelhar)", ModifierType.MIRROR),
+                                    Pair("Array (Matriz)", ModifierType.ARRAY),
+                                    Pair("Solidify (Solidificar)", ModifierType.SOLIDIFY)
+                                ).forEach { (label, type) ->
+                                    Button(
+                                        onClick = {
+                                            onAddModifier(type)
+                                            scene.pushUndoSnapshot()
+                                            onRefreshUi()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryIndigo.copy(alpha = 0.25f)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 2.dp)
+                                    ) {
+                                        Text("+ $label", fontSize = 10.sp, color = PrimaryIndigoLight)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    "DATA" -> {
+                        if (activeObj == null) {
+                            Text("Nenhum objeto selecionado", fontSize = 11.sp, color = TextMuted)
+                        } else {
+                            CollapsibleCard(title = "Geometria da Malha") {
+                                val mesh = activeObj.mesh
+                                Text("Vértices: ${mesh.vertices.size}", fontSize = 11.sp, color = TextSecondary)
+                                Text("Faces: ${mesh.faces.size}", fontSize = 11.sp, color = TextSecondary)
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Button(
+                                    onClick = { onExtrudeFaces(0.5f); scene.pushUndoSnapshot(); onRefreshUi() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryIndigo),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Extrudar Faces (E)", fontSize = 11.sp)
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Button(
+                                    onClick = { onSubdivideMesh(); scene.pushUndoSnapshot(); onRefreshUi() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Subdividir Malha (Subdivide)", fontSize = 11.sp, color = TextPrimary)
+                                }
+                            }
+                        }
+                    }
+
+                    "MATERIAL" -> {
+                        if (activeObj == null) {
+                            Text("Nenhum objeto selecionado", fontSize = 11.sp, color = TextMuted)
+                        } else {
+                            CollapsibleCard(title = "Propriedades do Material") {
+                                val mat = activeObj.material
+                                var r by remember(mat.baseColor.r) { mutableStateOf(mat.baseColor.r) }
+                                var g by remember(mat.baseColor.g) { mutableStateOf(mat.baseColor.g) }
+                                var b by remember(mat.baseColor.b) { mutableStateOf(mat.baseColor.b) }
+                                var metallic by remember(mat.metallic) { mutableStateOf(mat.metallic) }
+                                var roughness by remember(mat.roughness) { mutableStateOf(mat.roughness) }
+
+                                Text("Material: ${mat.name}", fontSize = 11.sp, color = TextSecondary)
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                // Color Preview
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
+                                        .height(32.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(DarkSurfaceVariant)
-                                        .padding(8.dp)
-                                ) {
-                                    Text(mod.name, fontSize = 11.sp, color = TextPrimary, fontWeight = FontWeight.Bold)
-                                }
-                            }
+                                        .background(Color(mat.baseColor.toArgbInt()))
+                                )
 
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text("Adicionar Modificador", fontSize = 11.sp, color = TextSecondary)
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                            listOf(
-                                Pair("Subdivision Surface", ModifierType.SUBDIVISION_SURFACE),
-                                Pair("Mirror (Espelhar)", ModifierType.MIRROR),
-                                Pair("Array (Matriz)", ModifierType.ARRAY),
-                                Pair("Solidify (Solidificar)", ModifierType.SOLIDIFY)
-                            ).forEach { (label, type) ->
-                                Button(
-                                    onClick = { onAddModifier(type) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryIndigo.copy(alpha = 0.2f)),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 2.dp)
-                                ) {
-                                    Text("+ $label", fontSize = 10.sp, color = PrimaryIndigoLight)
-                                }
+                                Text("Vermelho (R): ${(r * 255).toInt()}", fontSize = 10.sp, color = TextMuted)
+                                Slider(
+                                    value = r,
+                                    onValueChange = { r = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
+                                    colors = SliderDefaults.colors(thumbColor = Color.Red, activeTrackColor = Color.Red)
+                                )
+
+                                Text("Verde (G): ${(g * 255).toInt()}", fontSize = 10.sp, color = TextMuted)
+                                Slider(
+                                    value = g,
+                                    onValueChange = { g = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
+                                    colors = SliderDefaults.colors(thumbColor = Color.Green, activeTrackColor = Color.Green)
+                                )
+
+                                Text("Azul (B): ${(b * 255).toInt()}", fontSize = 10.sp, color = TextMuted)
+                                Slider(
+                                    value = b,
+                                    onValueChange = { b = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
+                                    colors = SliderDefaults.colors(thumbColor = Color.Blue, activeTrackColor = Color.Blue)
+                                )
+
+                                Text("Metálico: ${(metallic * 100).toInt()}%", fontSize = 10.sp, color = TextMuted)
+                                Slider(
+                                    value = metallic,
+                                    onValueChange = { metallic = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
+                                    colors = SliderDefaults.colors(thumbColor = PrimaryIndigoLight, activeTrackColor = PrimaryIndigo)
+                                )
+
+                                Text("Rugosidade: ${(roughness * 100).toInt()}%", fontSize = 10.sp, color = TextMuted)
+                                Slider(
+                                    value = roughness,
+                                    onValueChange = { roughness = it; onUpdateMaterial(Color4(r, g, b, 1f), metallic, roughness) },
+                                    colors = SliderDefaults.colors(thumbColor = PrimaryIndigoLight, activeTrackColor = PrimaryIndigo)
+                                )
                             }
                         }
+                    }
 
-                        "ARMATURE" -> {
-                            val rig = activeObj.armature
-                            if (rig == null) {
-                                Text("Objeto não possui Armature/Esqueleto.", fontSize = 11.sp, color = TextMuted)
-                            } else {
-                                Text("Bones do Rig (${rig.bones.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                rig.bones.forEach { bone ->
-                                    Text("• ${bone.name} (Parent: ${bone.parentId ?: "None"})", fontSize = 10.sp, color = TextSecondary)
-                                }
-                            }
+                    "CONSTRAINTS" -> {
+                        CollapsibleCard(title = "Constraints (Restrições)") {
+                            Text("Restrições ativas: 0", fontSize = 11.sp, color = TextMuted)
                         }
                     }
                 }
@@ -313,7 +417,40 @@ fun PropertiesPanel(
 }
 
 @Composable
-private fun Vector3Control(
+private fun CollapsibleCard(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    var expanded by remember { mutableStateOf(true) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(DarkSurfaceVariant)
+            .padding(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(if (expanded) "▲" else "▼", fontSize = 10.sp, color = TextMuted)
+        }
+
+        if (expanded) {
+            Spacer(modifier = Modifier.height(8.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun Vector3TouchControl(
     v: Vector3,
     onValueChange: (Vector3) -> Unit
 ) {
@@ -341,8 +478,8 @@ private fun Vector3Control(
                     },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = DarkSurfaceVariant,
-                        unfocusedContainerColor = DarkSurfaceVariant,
+                        focusedContainerColor = DarkSurface,
+                        unfocusedContainerColor = DarkSurface,
                         focusedBorderColor = color,
                         unfocusedBorderColor = DarkCardBorder,
                         focusedTextColor = TextPrimary,

@@ -14,6 +14,7 @@ import java.nio.FloatBuffer
 import java.nio.ShortBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -164,6 +165,15 @@ class BlendroidGLRenderer : GLSurfaceView.Renderer {
     override fun onDrawFrame(gl: GL10?) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
+        val currentScene = scene
+
+        // X-Ray Mode handling
+        if (currentScene?.showXRay == true) {
+            GLES20.glDisable(GLES20.GL_DEPTH_TEST)
+        } else {
+            GLES20.glEnable(GLES20.GL_DEPTH_TEST)
+        }
+
         // Orbit Camera View Matrix setup
         val radYaw = Math.toRadians(yaw.toDouble()).toFloat()
         val radPitch = Math.toRadians(pitch.toDouble()).toFloat()
@@ -174,15 +184,24 @@ class BlendroidGLRenderer : GLSurfaceView.Renderer {
 
         Matrix.setLookAtM(viewMatrix, 0, camX, camY, camZ, panX, panY, 0f, 0f, 1f, 0f)
 
-        // Draw 3D Grid Floor & Origin Axes Gizmo
-        drawGridFloorAndAxes()
+        // Draw 3D Grid Floor & Origin Axes Gizmo if overlays enabled
+        if (currentScene?.showOverlays != false) {
+            drawGridFloorAndAxes()
+            draw3DCursor(currentScene?.cursorPosition ?: Vector3.Zero)
+        }
 
         // Draw Scene Objects
-        val currentScene = scene ?: return
+        if (currentScene == null) return
+
+        var activeObjPos: Vector3? = null
+
         for (obj in currentScene.objects) {
             if (!obj.isVisible) continue
 
             val isSelected = obj.id == currentScene.activeObjectId
+            if (isSelected) {
+                activeObjPos = obj.transform.position
+            }
 
             Matrix.setIdentityM(modelMatrix, 0)
             Matrix.translateM(modelMatrix, 0, obj.transform.position.x, obj.transform.position.y, obj.transform.position.z)
@@ -204,10 +223,15 @@ class BlendroidGLRenderer : GLSurfaceView.Renderer {
                     val faces = obj.mesh.faces
 
                     if (verts.isNotEmpty() && faces.isNotEmpty()) {
-                        drawMesh(obj, currentScene.shadingMode, isSelected)
+                        drawMesh(obj, currentScene.shadingMode, isSelected, currentScene.showXRay)
                     }
                 }
             }
+        }
+
+        // Draw Transform Gizmo (Move / Rotate / Scale) if an object is active and gizmo tool is selected
+        if (currentScene.showOverlays && activeObjPos != null) {
+            drawTransformGizmo(activeObjPos, currentScene.activeTool)
         }
     }
 
@@ -261,7 +285,83 @@ class BlendroidGLRenderer : GLSurfaceView.Renderer {
         GLES20.glDisableVertexAttribArray(linePosHandle)
     }
 
-    private fun drawMesh(obj: com.blendroid.app.engine.model.SceneObject, shadingMode: ShadingMode, isSelected: Boolean) {
+    private fun draw3DCursor(cursorPos: Vector3) {
+        GLES20.glUseProgram(lineProgram)
+
+        val segments = 24
+        val radius = 0.4f
+        val cursorCoords = mutableListOf<Float>()
+
+        // Crosshair lines
+        cursorCoords.add(cursorPos.x - radius * 1.5f); cursorCoords.add(cursorPos.y); cursorCoords.add(cursorPos.z)
+        cursorCoords.add(cursorPos.x + radius * 1.5f); cursorCoords.add(cursorPos.y); cursorCoords.add(cursorPos.z)
+
+        cursorCoords.add(cursorPos.x); cursorCoords.add(cursorPos.y - radius * 1.5f); cursorCoords.add(cursorPos.z)
+        cursorCoords.add(cursorPos.x); cursorCoords.add(cursorPos.y + radius * 1.5f); cursorCoords.add(cursorPos.z)
+
+        // Circle
+        for (i in 0 until segments) {
+            val theta1 = (2 * PI * i / segments).toFloat()
+            val theta2 = (2 * PI * (i + 1) / segments).toFloat()
+
+            cursorCoords.add(cursorPos.x + radius * cos(theta1)); cursorCoords.add(cursorPos.y + radius * sin(theta1)); cursorCoords.add(cursorPos.z)
+            cursorCoords.add(cursorPos.x + radius * cos(theta2)); cursorCoords.add(cursorPos.y + radius * sin(theta2)); cursorCoords.add(cursorPos.z)
+        }
+
+        val buf = createFloatBuffer(cursorCoords.toFloatArray())
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
+        GLES20.glUniformMatrix4fv(lineMvpHandle, 1, false, mvpMatrix, 0)
+
+        GLES20.glEnableVertexAttribArray(linePosHandle)
+        GLES20.glVertexAttribPointer(linePosHandle, 3, GLES20.GL_FLOAT, false, 12, buf)
+
+        GLES20.glLineWidth(2.5f)
+        GLES20.glUniform4f(lineColorHandle, 0.95f, 0.2f, 0.2f, 1.0f) // Red-white Blender 3D Cursor ring
+        GLES20.glDrawArrays(GLES20.GL_LINES, 0, cursorCoords.size / 3)
+
+        GLES20.glDisableVertexAttribArray(linePosHandle)
+    }
+
+    private fun drawTransformGizmo(pos: Vector3, tool: String) {
+        if (tool != "MOVE" && tool != "ROTATE" && tool != "SCALE") return
+
+        GLES20.glUseProgram(lineProgram)
+        val len = 1.5f
+
+        val gizmoCoords = floatArrayOf(
+            // X Axis
+            pos.x, pos.y, pos.z, pos.x + len, pos.y, pos.z,
+            // Y Axis
+            pos.x, pos.y, pos.z, pos.x, pos.y + len, pos.z,
+            // Z Axis
+            pos.x, pos.y, pos.z, pos.x, pos.y, pos.z + len
+        )
+
+        val buf = createFloatBuffer(gizmoCoords)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
+        GLES20.glUniformMatrix4fv(lineMvpHandle, 1, false, mvpMatrix, 0)
+
+        GLES20.glEnableVertexAttribArray(linePosHandle)
+        GLES20.glVertexAttribPointer(linePosHandle, 3, GLES20.GL_FLOAT, false, 12, buf)
+
+        GLES20.glLineWidth(4.0f)
+
+        // Draw X Axis Red
+        GLES20.glUniform4f(lineColorHandle, 0.95f, 0.25f, 0.25f, 1f)
+        GLES20.glDrawArrays(GLES20.GL_LINES, 0, 2)
+
+        // Draw Y Axis Green
+        GLES20.glUniform4f(lineColorHandle, 0.25f, 0.85f, 0.35f, 1f)
+        GLES20.glDrawArrays(GLES20.GL_LINES, 2, 2)
+
+        // Draw Z Axis Blue
+        GLES20.glUniform4f(lineColorHandle, 0.25f, 0.55f, 0.95f, 1f)
+        GLES20.glDrawArrays(GLES20.GL_LINES, 4, 2)
+
+        GLES20.glDisableVertexAttribArray(linePosHandle)
+    }
+
+    private fun drawMesh(obj: com.blendroid.app.engine.model.SceneObject, shadingMode: ShadingMode, isSelected: Boolean, isXRay: Boolean) {
         val vertices = mutableListOf<Float>()
         val normals = mutableListOf<Float>()
         val indices = mutableListOf<Short>()
@@ -342,8 +442,9 @@ class BlendroidGLRenderer : GLSurfaceView.Renderer {
         val colorR = if (isSelected) 0.97f else matColor.r
         val colorG = if (isSelected) 0.58f else matColor.g
         val colorB = if (isSelected) 0.11f else matColor.b
+        val alphaVal = if (isXRay) 0.5f else matColor.a
 
-        GLES20.glUniform4f(colorHandle, colorR, colorG, colorB, matColor.a)
+        GLES20.glUniform4f(colorHandle, colorR, colorG, colorB, alphaVal)
 
         if (shadingMode != ShadingMode.WIREFRAME) {
             GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.size, GLES20.GL_UNSIGNED_SHORT, indexBuffer)
@@ -381,6 +482,25 @@ class BlendroidGLRenderer : GLSurfaceView.Renderer {
         GLES20.glLineWidth(8f)
         GLES20.glDrawArrays(GLES20.GL_POINTS, 0, 1)
         GLES20.glDisableVertexAttribArray(linePosHandle)
+    }
+
+    // View Orientation Preset Methods
+    fun setViewFront() { yaw = 0f; pitch = 0f }
+    fun setViewBack() { yaw = 180f; pitch = 0f }
+    fun setViewRight() { yaw = -90f; pitch = 0f }
+    fun setViewLeft() { yaw = 90f; pitch = 0f }
+    fun setViewTop() { yaw = 0f; pitch = 89.9f }
+    fun setViewBottom() { yaw = 0f; pitch = -89.9f }
+    fun setViewIsometric() { yaw = 45f; pitch = 35.264f }
+
+    fun setViewCamera() {
+        val activeCam = scene?.objects?.find { it.type == MeshPrimitiveType.CAMERA }
+        if (activeCam != null) {
+            panX = activeCam.transform.position.x
+            panY = activeCam.transform.position.y
+            yaw = activeCam.transform.rotation.y
+            pitch = activeCam.transform.rotation.x
+        }
     }
 
     private fun loadShader(type: Int, shaderCode: String): Int {
